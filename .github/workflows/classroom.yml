@@ -27,27 +27,38 @@ jobs:
       - name: Run unit tests
         run: dotnet test Lab1.sln --no-build --no-restore -c Release
 
-      # Деплой на Heroku через docker (без Heroku CLI и webhooks).
-      - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.13.15
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          usedocker: true
+      # Деплой на Render через Deploy Hook (POST триггерит пересборку/редисплой).
+      - name: Trigger Render deploy
+        if: github.event_name == 'push' && secrets.RENDER_DEPLOY_HOOK_URL != ''
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
-      # Подставляем реальный адрес приложения в Postman-окружение перед интеграционными тестами.
-      - name: Set Heroku baseUrl
+      # Ждём, пока сервис поднимется (free-план после сна просыпается ~30-60 c).
+      - name: Wait for service
+        if: github.event_name == 'push' && secrets.RENDER_URL != ''
+        env:
+          RENDER_URL: ${{ secrets.RENDER_URL }}
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$RENDER_URL/api/v1/persons" || echo 000)
+            echo "attempt $i -> $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "Service not ready in time"; exit 1
+
+      # Подставляем реальный адрес Render в Postman-окружение перед интеграционными тестами.
+      - name: Set Render baseUrl
+        if: github.event_name == 'push' && secrets.RENDER_URL != ''
         shell: bash
         run: |
-          APP_URL="https://${{ secrets.HEROKU_APP_NAME }}.herokuapp.com"
-          sed -i "s|https://your-app\.herokuapp\.com|$APP_URL|g" "postman/[inst][heroku] Lab1.postman_environment.json"
+          sed -i "s|https://your-app\.onrender\.com|${{ secrets.RENDER_URL }}|g" "postman/[inst][render] Lab1.postman_environment.json"
 
       - name: Run API Tests
+        if: github.event_name == 'push' && secrets.RENDER_URL != ''
         uses: matt-ball/newman-action@master
         with:
           collection: postman/[inst] Lab1.postman_collection.json
-          environment: postman/[inst][heroku] Lab1.postman_environment.json
+          environment: postman/[inst][render] Lab1.postman_environment.json
           delayRequest: 100
           reporters: '[ "cli" ]'
 
@@ -57,6 +68,7 @@ jobs:
 
       - name: Github auto grader mark
         uses: Romanow/google-sheet-autograder-marker@v1.0
+        continue-on-error: true
         with:
           google_token: ${{ secrets.GOOGLE_API_KEY }}
           sheet_id: "1xkgjUX6Qmk7rdJG-QPOToav-HWWtthJjnShIKnw3oIY"

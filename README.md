@@ -2,7 +2,7 @@
 
 Простейшее веб-приложение с CRUD-операциями над сущностью **Person**, написанное на
 **.NET 10 (ASP.NET Core Web API)** с хранением в **PostgreSQL (EF Core / Npgsql)**.
-Сборка, unit-тесты и деплой на Heroku автоматизированы через **GitHub Actions**.
+Сборка, unit-тесты и деплой на Render автоматизированы через **GitHub Actions**.
 
 ## REST API
 
@@ -42,7 +42,7 @@ PersonService/            — Web API приложение
 PersonService.Tests/       — unit-тесты (xUnit, EF Core InMemory)
 Dockerfile                 — multi-stage образ
 docker-compose.yml         — локальный PostgreSQL 13
-.github/workflows/classroom.yml — CI/CD: build + test + deploy на Heroku
+.github/workflows/classroom.yml — CI/CD: build + test + deploy на Render
 postman/                   — коллекция и окружения для интеграционных тестов
 person-service.yaml        — OpenAPI-спецификация
 ```
@@ -78,15 +78,24 @@ docker build -t person-service .
 docker run --rm -p 8080:8080 -e DATABASE_URL="postgres://program:test@host.docker.internal:5433/persons" person-service
 ```
 
-## Деплой на Heroku
+## Деплой на Render
 
 Выполняется GitHub Actions workflow при пуше в `master`/`main`:
 
 1. сборка и unit-тесты;
-2. деплой Docker-образа на Heroku (`akhileshns/heroku-deploy` с `usedocker: true`);
-3. подстановка реального адреса в Postman-окружение;
-4. интеграционные тесты (Newman) против развёрнутого сервиса.
+2. деплой на Render через **Deploy Hook** (POST триггерит пересборку/редисплой);
+3. ожидание, пока сервис поднимется (free-план после сна просыпается ~30–60 c);
+4. подстановка реального адреса в Postman-окружение;
+5. интеграционные тесты (Newman) против развёрнутого сервиса.
 
-Для работы нужны секреты репозитория: `HEROKU_API_KEY`, `HEROKU_APP_NAME`,
-`HEROKU_EMAIL`. На Heroku к приложению должен быть подключён аддон **Heroku Postgres**
-(переменная `DATABASE_URL` заполняется автоматически, приложение читает её при старте).
+Для работы нужны секреты репозитория:
+
+- `RENDER_DEPLOY_HOOK_URL` — адрес Deploy Hook из Render (Settings → Deploy Hook);
+- `RENDER_URL` — адрес сервиса, например `https://person-service.onrender.com`.
+
+На Render к сервису должна быть подключена **Render PostgreSQL**; переменная окружения
+`DATABASE_URL` (внутренний адрес БД) задаётся в Render (Environment). Приложение читает
+`DATABASE_URL` и `PORT` при старте.
+
+> Примечание: free-тариф Render выключает сервис после ~15 минут простоя (следующий
+> запрос просыпает его ~30–60 c), а free-PostgreSQL живёт ~90 дней.
