@@ -28,8 +28,8 @@ app.Run();
 
 static string BuildConnectionString(IConfiguration configuration)
 {
-    // На Heroku подключение к Postgres передаётся через переменную DATABASE_URL вида:
-    // postgres://user:password@host:port/dbname?sslmode=require
+    // Подключение к Postgres передаётся через переменную DATABASE_URL вида:
+    // postgres://user:password@host:port/dbname
     var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
     if (!string.IsNullOrWhiteSpace(databaseUrl))
     {
@@ -38,7 +38,8 @@ static string BuildConnectionString(IConfiguration configuration)
         var csb = new NpgsqlConnectionStringBuilder
         {
             Host = uri.Host,
-            Port = uri.Port,
+            // Если порт в URL не указан — используем стандартный 5432.
+            Port = uri.Port > 0 ? uri.Port : 5432,
             Database = uri.AbsolutePath.TrimStart('/'),
             Username = userInfo[0],
             Password = userInfo.Length > 1 ? userInfo[1] : string.Empty,
