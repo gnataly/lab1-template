@@ -8,6 +8,10 @@ jobs:
   build:
     name: Autograding
     runs-on: ubuntu-latest
+    env:
+      # Секреты нельзя читать в `if` напрямую — выносим в env и проверяем через него.
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      RENDER_URL: ${{ secrets.RENDER_URL }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,14 +33,12 @@ jobs:
 
       # Деплой на Render через Deploy Hook (POST триггерит пересборку/редисплой).
       - name: Trigger Render deploy
-        if: github.event_name == 'push' && secrets.RENDER_DEPLOY_HOOK_URL != ''
-        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        if: github.event_name == 'push' && env.RENDER_DEPLOY_HOOK_URL != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
 
       # Ждём, пока сервис поднимется (free-план после сна просыпается ~30-60 c).
       - name: Wait for service
-        if: github.event_name == 'push' && secrets.RENDER_URL != ''
-        env:
-          RENDER_URL: ${{ secrets.RENDER_URL }}
+        if: github.event_name == 'push' && env.RENDER_URL != ''
         run: |
           for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' "$RENDER_URL/api/v1/persons" || echo 000)
@@ -48,13 +50,13 @@ jobs:
 
       # Подставляем реальный адрес Render в Postman-окружение перед интеграционными тестами.
       - name: Set Render baseUrl
-        if: github.event_name == 'push' && secrets.RENDER_URL != ''
+        if: github.event_name == 'push' && env.RENDER_URL != ''
         shell: bash
         run: |
-          sed -i "s|https://your-app\.onrender\.com|${{ secrets.RENDER_URL }}|g" "postman/[inst][render] Lab1.postman_environment.json"
+          sed -i "s|https://your-app\.onrender\.com|$RENDER_URL|g" "postman/[inst][render] Lab1.postman_environment.json"
 
       - name: Run API Tests
-        if: github.event_name == 'push' && secrets.RENDER_URL != ''
+        if: github.event_name == 'push' && env.RENDER_URL != ''
         uses: matt-ball/newman-action@master
         with:
           collection: postman/[inst] Lab1.postman_collection.json
