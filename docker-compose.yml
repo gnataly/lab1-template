@@ -1,8 +1,8 @@
 version: "3"
 services:
   postgres:
-    image: library/postgres:13
-    container_name: postgres
+    image: postgres:13
+    container_name: lab1-postgres
     restart: on-failure
     environment:
       POSTGRES_USER: postgres
@@ -12,7 +12,8 @@ services:
       - db-data:/var/lib/postgresql/data
       - ./postgres/:/docker-entrypoint-initdb.d/
     ports:
-      - "5432:5432"
+      # Хост-порт 5433, чтобы не конфликтовать с уже занятым 5432 на этой машине.
+      - "5433:5432"
 
 volumes:
   db-data:

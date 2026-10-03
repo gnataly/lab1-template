@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+.git/
+.github/
+.vs/
+**/appsettings.Development.json
+PersonService.Tests/
+PersonService/*.http
+*.user

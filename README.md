@@ -1,61 +1,92 @@
-# Лабораторная работа #1
+# Лабораторная работа №1 — Person Service
 
-![GitHub Classroom Workflow](../../workflows/GitHub%20Classroom%20Workflow/badge.svg?branch=master)
+Простейшее веб-приложение с CRUD-операциями над сущностью **Person**, написанное на
+**.NET 10 (ASP.NET Core Web API)** с хранением в **PostgreSQL (EF Core / Npgsql)**.
+Сборка, unit-тесты и деплой на Heroku автоматизированы через **GitHub Actions**.
 
-## Continuous Integration & Continuous Delivery
+## REST API
 
-### Формулировка
+Базовый путь: `/api/v1/persons`
 
-В рамках первой лабораторной работы требуется написать простейшее веб приложение, предоставляющее пользователю набор
-операций над сущностью Person. Для этого приложения автоматизировать процесс сборки, тестирования и релиза на Heroku.
+| Метод   | Путь                  | Описание                                   | Успешный ответ      |
+|---------|-----------------------|--------------------------------------------|---------------------|
+| `GET`   | `/persons`            | Список всех людей                          | `200` + JSON-массив |
+| `GET`   | `/persons/{id}`       | Информация о человеке                      | `200` + JSON         |
+| `POST`  | `/persons`            | Создание человека                          | `201` + `Location`   |
+| `PATCH` | `/persons/{id}`       | Обновление человека (частичное)            | `200` + JSON         |
+| `DELETE`| `/persons/{id}`       | Удаление человека                          | `204`                |
 
-Приложение должно реализовать API:
+Формат данных — JSON (camelCase). Если запись по `id` не найдена — `404 Not Found`.
 
-* `GET /persons/{personId}` – информация о человеке;
-* `GET /persons` – информация по всем людям;
-* `POST /persons` – создание новой записи о человеке;
-* `PATCH /persons/{personId}` – обновление существующей записи о человеке;
-* `DELETE /persons/{personId}` – удаление записи о человеке.
+Модель `Person`:
 
-[Описание API](person-service.yaml) в формате OpenAPI.
+```json
+{
+  "id": 1,
+  "name": "Alice",
+  "age": 31,
+  "address": "Moscow",
+  "work": "T-Bank"
+}
+```
 
-### Требования
+## Структура проекта
 
-* Исходный проект хранится на Github. Для сборки использовать
-  _только_ [Github Actions](https://docs.github.com/en/actions).
-* Запросы / ответы должны быть в формате JSON.
-* Если запись по id не найдена, то возвращать HTTP статус 404 Not Found.
-* При создании новой записи о человека (метод POST /person) возвращать HTTP статус 201 Created с пустым телом и
-  Header `Location: /api/v1/persons/{personId}`, где `personId` – id созданной записи.
-* Приложение должно содержать 4-5 unit-тестов на реализованные операции.
-* Приложение должно быть завернуто в Docker.
-* Деплой на Heroku реализовать средствами GitHub Actions, для деплоя использовать docker. Для деплоя _нельзя_
-  использовать Heroku CLI или webhooks.
-* В [build.yml](.github/workflows/classroom.yml) дописать шаги на сборку, прогон unit-тестов и деплой на Heroku.
-* Приложение должно использовать БД для хранения записей.
-* В [[inst][heroku] Lab1.postman_environment.json](postman/%5Binst%5D%5Bheroku%5D%20Lab1.postman_environment.json)
-  заменить значение `baseUrl` на адрес развернутого сервиса на Heroku.
+```
+PersonService/            — Web API приложение
+  Controllers/PersonsController.cs
+  Contracts/              — PersonRequest / PersonResponse / ошибки
+  Data/AppDbContext.cs
+  Models/Person.cs
+  Migrations/
+PersonService.Tests/       — unit-тесты (xUnit, EF Core InMemory)
+Dockerfile                 — multi-stage образ
+docker-compose.yml         — локальный PostgreSQL 13
+.github/workflows/classroom.yml — CI/CD: build + test + deploy на Heroku
+postman/                   — коллекция и окружения для интеграционных тестов
+person-service.yaml        — OpenAPI-спецификация
+```
 
-### Пояснения
+## Локальный запуск
 
-* [Пример](https://github.com/Romanow/person-service) приложения на Kotlin / Spring.
-* Для локальной разработки можно использовать Postgres в docker, для этого нужно запустить `docker compose up -d`,
-  поднимется контейнер с Postgres 13, будет создана БД `persons` и пользователь `program:test`.
-* После успешного деплоя на Heroku, через newman запускаются интеграционные тесты. Интеграционные тесты можно проверить
-  локально, для этого нужно импортировать в Postman
-  коллекцию [lab1.postman_collection.json](postman/%5Binst%5D%20Lab1.postman_collection.json)]) и
-  environment [[local] lab1.postman_environment.json](postman/%5Binst%5D%5Blocal%5D%20Lab1.postman_environment.json).
-* Для поиска нужного инструмента для сборки используется [Github Marketplace](https://github.com/marketplace).
-* Пояснение как работает [Heroku](https://devcenter.heroku.com/articles/how-heroku-works).
-* Для подключения БД на Heroku заходите через Dashboard в раздел Resources и в блоке `Add-ons` ищете Heroku Postgres.
-  Для получения адреса, пользователя и пароля переходите в саму БД и выбираете раздел `Settings`
-  -> `Database Credentials`.
-* ❗Heroku не позволяет регистрировать новых пользователей, поэтому для регистрации используйте VPN.
+Требуется .NET SDK 10 и Docker.
 
-### Прием задания
+```bash
+# 1. Поднять PostgreSQL (порт 5433, чтобы не конфликтовать с занятым 5432)
+docker compose up -d
 
-1. При получении задания у вас создается fork этого репозитория для вашего пользователя.
-2. После того как все тесты успешно завершатся, в Github Classroom на Dashboard будет отмечен успешный прогон тестов.
-3. ❗️С конца
-   ноября [Heroku убирает Free Plan](https://help.heroku.com/RSBRUH58/removal-of-heroku-free-product-plans-faq),
-   останутся только платные подписки. В связи с этим, дедлайн по сдаче ЛР #1 10 ноября. 
+# 2. Запустить приложение (слушает http://localhost:8080)
+dotnet run --project PersonService
+```
+
+Миграции применяются автоматически при старте приложения.
+
+Интеграционные тесты локально (Newman/Postman) — коллекция
+`postman/[inst] Lab1.postman_collection.json` и окружение
+`postman/[inst][local] Lab1.postman_environment.json` (baseUrl `http://localhost:8080`).
+
+## Unit-тесты
+
+```bash
+dotnet test
+```
+
+## Docker-образ
+
+```bash
+docker build -t person-service .
+docker run --rm -p 8080:8080 -e DATABASE_URL="postgres://program:test@host.docker.internal:5433/persons" person-service
+```
+
+## Деплой на Heroku
+
+Выполняется GitHub Actions workflow при пуше в `master`/`main`:
+
+1. сборка и unit-тесты;
+2. деплой Docker-образа на Heroku (`akhileshns/heroku-deploy` с `usedocker: true`);
+3. подстановка реального адреса в Postman-окружение;
+4. интеграционные тесты (Newman) против развёрнутого сервиса.
+
+Для работы нужны секреты репозитория: `HEROKU_API_KEY`, `HEROKU_APP_NAME`,
+`HEROKU_EMAIL`. На Heroku к приложению должен быть подключён аддон **Heroku Postgres**
+(переменная `DATABASE_URL` заполняется автоматически, приложение читает её при старте).
